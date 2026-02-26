@@ -1,6 +1,7 @@
 import json
 import os
 
+
 from db.models import Race, Skill, Player, Guild
 
 
@@ -13,39 +14,49 @@ def main() -> None:
     # Iterate over each player object
     for nickname, player_data in players_data.items():
         # ---- Race ----
-        race_data = player_data["race"]
-        race, _ = Race.objects.get_or_create(
-            name=race_data["name"],
-            defaults={"description": race_data.get("description", "")},
-        )
+        race_data = player_data.get("race", {})
+        race_name = race_data.get("name")
+        race_description = race_data.get("description", "")
+        if race_name:
+            race, _ = Race.objects.get_or_create(
+                name=race_name,
+                defaults={"description": race_description},
+            )
+        else:
+            race = None  # handle missing race safely
 
         # ---- Skills ----
-        # Skills are nested under race
         for skill_data in race_data.get("skills", []):
-            Skill.objects.get_or_create(
-                name=skill_data["name"],
-                defaults={"bonus": skill_data["bonus"], "race": race},
-            )
-        # Removed any reassignment of skill.race to avoid corruption
+            skill_name = skill_data.get("name")
+            skill_bonus = skill_data.get("bonus", "")
+            if skill_name and race:
+                Skill.objects.get_or_create(
+                    name=skill_name,
+                    defaults={"bonus": skill_bonus, "race": race},
+                )
+        # No reassignment of skill.race — safe for unique constraint
 
         # ---- Guild ----
         guild_data = player_data.get("guild")
         guild = None
         if guild_data:
-            guild, _ = Guild.objects.get_or_create(
-                name=guild_data["name"],
-                defaults={"description": guild_data.get("description")},
-            )
+            guild_name = guild_data.get("name")
+            guild_description = guild_data.get("description")
+            if guild_name:
+                guild, _ = Guild.objects.get_or_create(
+                    name=guild_name,
+                    defaults={"description": guild_description},
+                )
 
         # ---- Player ----
         Player.objects.get_or_create(
             nickname=nickname,
             defaults={
-                "email": player_data["email"],
+                "email": player_data.get("email", ""),
                 "bio": player_data.get("bio", ""),
                 "race": race,
                 "guild": guild,
-                # created_at is handled automatically by model default
+                # created_at handled by model default
             },
         )
 
